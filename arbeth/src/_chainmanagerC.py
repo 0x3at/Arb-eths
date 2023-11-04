@@ -1,8 +1,5 @@
-import json
-from dotenv import load_dotenv
-from os import getenv
 from decimal import Decimal
-import time
+
 
 from web3 import Web3  # // Link to docs: https://shorturl.at/agMQX // #
 from eth_account import Account  # // Link to docs: https://shorturl.at/sHW39 // #
@@ -79,7 +76,7 @@ class ChainManager:
     def retrieve_current_ETH_price(self) -> Decimal:
         return Decimal(self.ETH_USD_oracle.functions.latestAnswer().call()) / (
             10 ** self.ETH_USD_oracle.functions.decimals().call()
-        )  # type: ignore
+        )
 
     def retrieve_transaction_dict(self) -> dict:
         transaction = {

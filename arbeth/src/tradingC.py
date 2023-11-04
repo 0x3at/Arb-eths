@@ -1,4 +1,3 @@
-import json
 from dotenv import load_dotenv
 from os import getenv
 from decimal import Decimal
@@ -16,7 +15,7 @@ from _configInjector import ConfigurationInjector
 from _chainmanagerC import ChainManager
 
 
-# -- List of configred networks
+# -- List of configured networks
 networks = ["eth", "arbitrum", "avax"]
 
 
@@ -26,9 +25,16 @@ NETWORK = ConfigurationInjector(networks[1]).config  # type: ignore #
 PRIVATEKEY = NETWORK.privateKey
 APISTRING = NETWORK.api
 WETHADDRESS = Web3.to_checksum_address(NETWORK.weth)
+
 W3: Web3 = Web3(Web3.HTTPProvider(APISTRING))
 PUBLICKEY = W3.to_checksum_address(NETWORK.publicKey)
 
+try:
+    W3.is_connected()
+    print(f"Connected to {NETWORK.name} : {W3.is_connected()}")
+except:
+    print("Error: Unable to connect to network")
+    exit(1)
 
 # -- On Chain Utlity Class (Estimation, Building, & Conversion)
 chain_helper = ChainManager(
