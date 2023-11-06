@@ -8,7 +8,9 @@ class ConfigurationInjector:
     # ? User passes int argument of the index
     # // Example:
     # ? atr : list = [eth,arbitrum,avax] | arg : int = list index
+
     _instance = None
+    # //_networks = ["eth", "arbitrum", "avax"]
 
     def __new__(cls, network_name: str, test_run: bool = False):
         if cls._instance is None:

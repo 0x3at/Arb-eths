@@ -3,9 +3,8 @@ from os import getenv
 from decimal import Decimal
 import time
 
-from web3 import Web3  # // Link to docs: https://shorturl.at/agMQX // #
+from web3 import Web3, exceptions  # // Link to docs: https://shorturl.at/agMQX // #
 from eth_account import Account  # // Link to docs: https://shorturl.at/sHW39 // #
-from eth_account.signers.local import LocalAccount
 from eth_typing import (  # // Link to docs: https://shorturl.at/cBJ28 // #
     ChecksumAddress,
     TypeStr,
@@ -47,25 +46,6 @@ chain_helper = ChainManager(
 )
 
 
-class User:
-    _instance = None  # Singleton Implementation
-
-    def __new__(cls, token0=None, token1=None):
-        if cls._instance is None:
-            cls._instance = super(User, cls).__new__(cls)
-            cls._instance.initialize(token0, token1)
-        return cls._instance
-
-    def initialize(self, token0=None, token1=None):
-        # -- Constants
-        self.account = Account.from_key(PRIVATEKEY)
-        self.address = self.account.address
-        self.nonce = W3.eth.get_transaction_count(self.address)
-        self.key = self.account.key
-        self.token0 = token0
-        self.token1 = token1
-
-
 class ERC20Token:
     def __init__(self, address: str):
         # -- Constants
@@ -95,6 +75,7 @@ class ERC20Token:
             return True
 
         else:
+            print("Approving Spend Limit...\n")
             transaction = chain_helper.retrieve_transaction_dict()
 
             builtTransaction = self.contract.functions.approve(
@@ -107,10 +88,31 @@ class ERC20Token:
             if Web3.to_hex(
                 W3.eth.send_raw_transaction(transaction=signedTX.rawTransaction)
             ):
+                print("Spend Limit Approved\n")
                 return True
             else:
-                print("Error during approve contract call")
+                print("Error during approve contract call\n")
                 return False
+
+
+# ! Needs to be isolated in its own file and imported through the injector
+class User:
+    _instance = None  # Singleton Implementation
+
+    def __new__(cls, token0: ERC20Token, token1: ERC20Token):
+        if cls._instance is None:
+            cls._instance = super(User, cls).__new__(cls)
+            cls._instance.initialize(token0, token1)
+        return cls._instance
+
+    def initialize(self, token0, token1):
+        # -- Constants
+        self.account = Account.from_key(PRIVATEKEY)
+        self.address = self.account.address
+        self.nonce = W3.eth.get_transaction_count(self.address)
+        self.key = self.account.key
+        self.token0 = token0
+        self.token1 = token1
 
 
 class UNIV2Clone:
@@ -126,7 +128,7 @@ class UNIV2Clone:
 
         # -- Callable Contracts
         self.routerContract = W3.eth.contract(
-            address=self.routerAddress, abi=NETWORK.uni_rout_ABI
+            address=self.routerAddress, abi=NETWORK.sushi_rout_ABI
         )
         self.factoryContract = W3.eth.contract(
             address=self.factoryAddress, abi=NETWORK.uni_fact_ABI
@@ -140,22 +142,128 @@ class UNIV2Clone:
     def getAmountsOutQuote(self, amountIn: int, path: list):
         return self.routerContract.functions.getAmountsOut(amountIn, path).call()
 
-    def calculate_arbitrage_opp(self):
-        pass
-
     def executeRouterExactETHforTokensSwap(self):
         pass
 
-    def executeRouterExactTokensforTokensSwap(self):
-        pass
+    def executeRouterExactTokensforTokensSwap(
+        self, amountIn: int, path: list, amountOutMin: int
+    ):
+        transaction = chain_helper.transaction_dict
+
+        built_transaction = self.routerContract.functions.swapExactTokensForTokens(
+            amountIn, amountOutMin, path, PUBLICKEY, int(time.time() + 60)
+        ).build_transaction(
+            transaction  # type: ignore
+        )
+        signedTX = W3.eth.account.sign_transaction(built_transaction, PRIVATEKEY)
+
+        tx_hash = W3.eth.send_raw_transaction(transaction=signedTX.rawTransaction)
+        try:
+            tx_receipt = W3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            print("Transaction Successful\n")
+            print(tx_receipt)
+            return True
+        except exceptions.TimeExhausted:
+            print("Transaction Timed Out")
+            return False
+
+    def calculate_and_execute_arbitrage_opp(self):
+        transaction_cost = chain_helper.get_gas_price_in_USD(None) - Decimal(0.1)
+
+        print(f"Estimated TX Cost: ${transaction_cost}\n")
+
+        path: list = [self.user.token0.address, WETHADDRESS, self.user.token1.address]
+        min_recieved = self.routerContract.functions.getAmountsOut(
+            int(self.user.token0.rawBalance), path
+        ).call()[2]
+
+        print(
+            f"""
+Starting Path:\n
+Out: {self.user.token0.symbol} : {self.user.token0.readableBalance}\n
+In:  {self.user.token1.symbol} : {chain_helper.to_readable_value(min_recieved,self.user.token1.decimals)}\n
+- Potential Profit: {chain_helper.to_readable_value(min_recieved,self.user.token1.decimals)-Decimal(self.user.token0.readableBalance + transaction_cost)}
+"""
+        )
+
+        if self.user.token0.readableBalance > 1:
+            if (
+                chain_helper.to_readable_value(min_recieved, self.user.token1.decimals)
+                > self.user.token0.readableBalance + transaction_cost
+            ):
+                print("Arbitrage Opportunity Found!")
+
+                if self.user.token0.approve(
+                    self.routerAddress, self.user.token0.readableBalance
+                ):
+                    self.executeRouterExactTokensforTokensSwap(
+                        self.user.token0.rawBalance, path, min_recieved
+                    )
+                    return True
+
+        if self.user.token1.readableBalance > 1:
+            path: list = [
+                self.user.token1.address,
+                WETHADDRESS,
+                self.user.token0.address,
+            ]
+            min_recieved = self.routerContract.functions.getAmountsOut(
+                int(self.user.token1.rawBalance), path
+            ).call()[2]
+
+            print(
+                f"""
+Reversed Path:\n
+Out: {self.user.token1.symbol} : {self.user.token1.readableBalance}\n
+In:  {self.user.token0.symbol} : {chain_helper.to_readable_value(min_recieved,self.user.token0.decimals)}\n
+- Potential Profit: {chain_helper.to_readable_value(min_recieved,self.user.token0.decimals)-Decimal(self.user.token1.readableBalance + transaction_cost)}
+"""
+            )
+
+            if (
+                chain_helper.to_readable_value(min_recieved, self.user.token0.decimals)
+                > self.user.token1.readableBalance + transaction_cost
+            ):
+                print("Arbitrage Opportunity Found!")
+
+                if self.user.token1.approve(
+                    self.routerAddress, self.user.token1.readableBalance
+                ):
+                    self.executeRouterExactTokensforTokensSwap(
+                        self.user.token1.rawBalance, path, min_recieved
+                    )
+                    return True
+        else:
+            print("No Arbitrage Opportunity Found")
+
+            return False
+
+    def test_get_amounts_out(self):
+        path: list = [self.user.token0.address, WETHADDRESS, self.user.token1.address]
+        min_recieved = self.routerContract.functions.getAmountsOut(
+            int(self.user.token0.rawBalance), path
+        ).call()[2]
+        return min_recieved
 
 
-# // usdt = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
-# // dai = "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1"
+usdt = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
+usdce = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
 
-# // USDT = ERC20Token(usdt)
-# // DAI = ERC20Token(dai)
+USDT = ERC20Token(usdt)
+USDCE = ERC20Token(usdce)
+user = User(USDT, USDCE)
 
-# // user = User(USDT, DAI)
-# // print(user.token0)
-# // print(user.token1)
+sushiswap = UNIV2Clone("Sushiswap V2", NETWORK.UNIv2router, NETWORK.UNIv2factory, user)
+
+SCANNING = True
+while SCANNING:
+    try:
+        if sushiswap.calculate_and_execute_arbitrage_opp():
+            print("Swapping Pair...\n")
+        else:
+            time.sleep(3)
+            print("Scanning...\n")
+
+    except Exception as e:
+        print(e)
+        SCANNING = False
