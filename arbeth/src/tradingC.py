@@ -3,7 +3,8 @@ from os import getenv
 from decimal import Decimal
 import time
 
-from web3 import Web3, exceptions  # // Link to docs: https://shorturl.at/agMQX // #
+# // Link to docs: https://shorturl.at/agMQX // #
+from web3 import Web3, exceptions
 from eth_account import Account  # // Link to docs: https://shorturl.at/sHW39 // #
 from eth_typing import (  # // Link to docs: https://shorturl.at/cBJ28 // #
     ChecksumAddress,
@@ -11,7 +12,7 @@ from eth_typing import (  # // Link to docs: https://shorturl.at/cBJ28 // #
 )
 
 from _configInjector import ConfigurationInjector
-from _chainmanagerC import ChainManager
+from __chainmanager import ChainManager
 
 
 # -- List of configured networks
@@ -37,11 +38,11 @@ except:
 
 # -- On Chain Utlity Class (Estimation, Building, & Conversion)
 chain_helper = ChainManager(
+    W3,
     WETHADDRESS,
     W3.to_checksum_address(NETWORK.oracle),
     NETWORK.erc_20_ABI,
     NETWORK.oracle_ABI,
-    W3,
     PUBLICKEY,
 )
 
@@ -52,7 +53,8 @@ class ERC20Token:
         self.address: ChecksumAddress = Web3.to_checksum_address(address)
 
         # Callable Contracts
-        self.contract = W3.eth.contract(address=self.address, abi=NETWORK.erc_20_ABI)
+        self.contract = W3.eth.contract(
+            address=self.address, abi=NETWORK.erc_20_ABI)
 
         # -- Token Data
         self.name: str = self.contract.functions.name().call()
@@ -62,7 +64,8 @@ class ERC20Token:
             Decimal(self.contract.functions.balanceOf(PUBLICKEY).call())
             / 10**self.decimals
         )
-        self.rawBalance: int = self.contract.functions.balanceOf(PUBLICKEY).call()
+        self.rawBalance: int = self.contract.functions.balanceOf(
+            PUBLICKEY).call()
 
     # -- Class Methods
     def getAllowance(self, spender: ChecksumAddress):
@@ -76,7 +79,7 @@ class ERC20Token:
 
         else:
             print("Approving Spend Limit...\n")
-            transaction = chain_helper.retrieve_transaction_dict()
+            transaction = chain_helper.transaction
 
             builtTransaction = self.contract.functions.approve(
                 spender, chain_helper.to_raw_value(amount, self.decimals)
@@ -84,9 +87,11 @@ class ERC20Token:
                 transaction  # type: ignore
             )
 
-            signedTX = W3.eth.account.sign_transaction(builtTransaction, PRIVATEKEY)
+            signedTX = W3.eth.account.sign_transaction(
+                builtTransaction, PRIVATEKEY)
             if Web3.to_hex(
-                W3.eth.send_raw_transaction(transaction=signedTX.rawTransaction)
+                W3.eth.send_raw_transaction(
+                    transaction=signedTX.rawTransaction)
             ):
                 print("Spend Limit Approved\n")
                 return True
@@ -122,9 +127,12 @@ class UNIV2Clone:
         self.user = user
 
         # -- Addresses
-        self.oracleAddress: ChecksumAddress = W3.to_checksum_address(NETWORK.oracle)
-        self.routerAddress: ChecksumAddress = W3.to_checksum_address(routerAddress)
-        self.factoryAddress: ChecksumAddress = W3.to_checksum_address(factoryAddress)
+        self.oracleAddress: ChecksumAddress = W3.to_checksum_address(
+            NETWORK.oracle)
+        self.routerAddress: ChecksumAddress = W3.to_checksum_address(
+            routerAddress)
+        self.factoryAddress: ChecksumAddress = W3.to_checksum_address(
+            factoryAddress)
 
         # -- Callable Contracts
         self.routerContract = W3.eth.contract(
@@ -148,18 +156,22 @@ class UNIV2Clone:
     def executeRouterExactTokensforTokensSwap(
         self, amountIn: int, path: list, amountOutMin: int
     ):
-        transaction = chain_helper.transaction_dict
+        transaction = chain_helper.transaction
 
         built_transaction = self.routerContract.functions.swapExactTokensForTokens(
             amountIn, amountOutMin, path, PUBLICKEY, int(time.time() + 60)
         ).build_transaction(
             transaction  # type: ignore
         )
-        signedTX = W3.eth.account.sign_transaction(built_transaction, PRIVATEKEY)
 
-        tx_hash = W3.eth.send_raw_transaction(transaction=signedTX.rawTransaction)
+        signedTX = W3.eth.account.sign_transaction(
+            built_transaction, PRIVATEKEY)
+
+        tx_hash = W3.eth.send_raw_transaction(
+            transaction=signedTX.rawTransaction)
         try:
-            tx_receipt = W3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+            tx_receipt = W3.eth.wait_for_transaction_receipt(
+                tx_hash, timeout=120)
             print("Transaction Successful\n")
             print(tx_receipt)
             return True
@@ -168,11 +180,13 @@ class UNIV2Clone:
             return False
 
     def calculate_and_execute_arbitrage_opp(self):
-        transaction_cost = chain_helper.get_gas_price_in_USD(None) - Decimal(0.1)
+        transaction_cost = chain_helper.get_gas_price_in_USD(
+            None) / Decimal(2.75)
 
         print(f"Estimated TX Cost: ${transaction_cost}\n")
 
-        path: list = [self.user.token0.address, WETHADDRESS, self.user.token1.address]
+        path: list = [self.user.token0.address,
+                      WETHADDRESS, self.user.token1.address]
         min_recieved = self.routerContract.functions.getAmountsOut(
             int(self.user.token0.rawBalance), path
         ).call()[2]
@@ -188,7 +202,8 @@ In:  {self.user.token1.symbol} : {chain_helper.to_readable_value(min_recieved,se
 
         if self.user.token0.readableBalance > 1:
             if (
-                chain_helper.to_readable_value(min_recieved, self.user.token1.decimals)
+                chain_helper.to_readable_value(
+                    min_recieved, self.user.token1.decimals)
                 > self.user.token0.readableBalance + transaction_cost
             ):
                 print("Arbitrage Opportunity Found!")
@@ -221,7 +236,8 @@ In:  {self.user.token0.symbol} : {chain_helper.to_readable_value(min_recieved,se
             )
 
             if (
-                chain_helper.to_readable_value(min_recieved, self.user.token0.decimals)
+                chain_helper.to_readable_value(
+                    min_recieved, self.user.token0.decimals)
                 > self.user.token1.readableBalance + transaction_cost
             ):
                 print("Arbitrage Opportunity Found!")
@@ -239,7 +255,8 @@ In:  {self.user.token0.symbol} : {chain_helper.to_readable_value(min_recieved,se
             return False
 
     def test_get_amounts_out(self):
-        path: list = [self.user.token0.address, WETHADDRESS, self.user.token1.address]
+        path: list = [self.user.token0.address,
+                      WETHADDRESS, self.user.token1.address]
         min_recieved = self.routerContract.functions.getAmountsOut(
             int(self.user.token0.rawBalance), path
         ).call()[2]
@@ -253,7 +270,8 @@ USDT = ERC20Token(usdt)
 USDCE = ERC20Token(usdce)
 user = User(USDT, USDCE)
 
-sushiswap = UNIV2Clone("Sushiswap V2", NETWORK.UNIv2router, NETWORK.UNIv2factory, user)
+sushiswap = UNIV2Clone("Sushiswap V2", NETWORK.UNIv2router,
+                       NETWORK.UNIv2factory, user)
 
 SCANNING = True
 while SCANNING:
@@ -261,7 +279,8 @@ while SCANNING:
         if sushiswap.calculate_and_execute_arbitrage_opp():
             print("Swapping Pair...\n")
         else:
-            time.sleep(3)
+            print("-------------------------------------------\n\n\n\n\n")
+            time.sleep(10)
             print("Scanning...\n")
 
     except Exception as e:
