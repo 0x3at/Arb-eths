@@ -7,9 +7,10 @@ load_dotenv(find_dotenv())
 
 # Eth Mainnet
 class EthMainNet:
-    def __init__(self) -> None:
+    def __init__(self, isTest:bool=False) -> None:
         # -- Session Configurations
         self.name = "Ethereum"
+        self.test = isTest 
         self.privateKey = environ.get("PRIVATE_KEY")
         self.publicKey = environ.get("PUBLIC_KEY")
         self.api = environ.get("ALCHEMY_ETH_API")
@@ -23,7 +24,7 @@ class EthMainNet:
         self.FraxFactory = "0x43eC799eAdd63848443E2347C49f5f52e8Fe0F6f"
 
         # -- ABI's
-        with open(environ.get("PATH_TO_ERC_ABI")) as erc20ABI:  # type: ignore
+        with open(environ.get("PATH_TO_ERC_ABI")) as erc20ABI:  #type: ignore
             self.erc_20_ABI = json.load(erc20ABI)
         with open(environ.get("PATH_TO_UNI_LP_ABI")) as uniLPABI:  # type: ignore
             self.uni_lp_ABI = json.load(uniLPABI)
@@ -37,9 +38,10 @@ class EthMainNet:
 
 # Arbitrum Mainnet
 class ArbitrumMainNet:
-    def __init__(self) -> None:
+    def __init__(self, isTest: bool=False) -> None:
         # -- Session Configurations
         self.name = "Arbitrum One"
+        self.test = isTest
         self.privateKey = environ.get("PRIVATE_KEY")
         self.publicKey = environ.get("PUBLIC_KEY")
         self.api = environ.get("ARBITRUM_API")
@@ -67,8 +69,9 @@ class ArbitrumMainNet:
 
 # Avax Mainnet
 class AvaxMainNet:
-    def __init__(self) -> None:
+    def __init__(self, isTest: bool=False) -> None:
         self.name = "Avax Mainnet"
+        self.test =  isTest
         self.privateKey = environ.get("PRIVATE_KEY")
         self.publicKey = environ.get("PUBLIC_KEY")
         self.api = environ.get("AVAX_API")

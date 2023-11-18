@@ -1,0 +1,16 @@
+PATH_TO_ERC_ABI = "arbeth/abis/erc20.abi.json"
+PATH_TO_UNI_FACT_ABI = "arbeth/abis/uni.factory.abi.json"
+PATH_TO_UNI_ROUTER_ABI = "arbeth/abis/uni.router.abi.json"
+PATH_TO_UNI_LP_ABI = "arbeth/abis/uni.v2.lp.abi.json"
+PATH_TO_TJ_LP_ABI = "arbeth/abis/tj.lp.abi.json"
+PATH_TO_ORACLE_ABI = "arbeth/abis/oracle.eth.usd.abi.json"
+PATH_TO_SUSHI_ROUTER_ABI = "arbeth/abis/router.sushi.abi.json"
+
+INFURA_ETH_API = "https://mainnet.infura.io/v3/e1be908a63b34bd0aae2620578ef7f0a"
+ALCHEMY_GOERLI_API = "https://eth-goerli.g.alchemy.com/v2/qu136mVvwTuJIvrwGZGhKc5KQvyYNFsV"
+ALCHEMY_ETH_API = "https://eth-mainnet.g.alchemy.com/v2/v4hI0o0eZxQMfujfBU-KaRB-roaCvdWf" 
+ARBITRUM_API = "https://arb-mainnet.g.alchemy.com/v2/srwiQlBHZmQHVooKwYKQJjkIV52e5Ivz"
+AVAX_API = "https://thrumming-evocative-card.avalanche-mainnet.quiknode.pro/2d53622afca93d66d8f9e2ab011cd15cc71efebf/ext/bc/C/rpc/"
+
+PRIVATE_KEY = "a0c6060e6ffe3d98eaf79cb1a96b24937c9491f718e7a7e14045576625dff1ed"
+PUBLIC_KEY = "0x80B266c55cAef51856C9051963DA844814FC547d"

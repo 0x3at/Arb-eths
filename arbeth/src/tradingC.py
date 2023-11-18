@@ -23,6 +23,7 @@ networks = ["eth", "arbitrum", "avax"]
 # --  Retrieve Network Configurations
 NETWORK = ConfigurationInjector(networks[1]).config  # type: ignore #
 
+ISTESTRUN = NETWORK.test
 PRIVATEKEY = NETWORK.privateKey
 APISTRING = NETWORK.api
 WETHADDRESS = Web3.to_checksum_address(NETWORK.weth)
@@ -50,6 +51,7 @@ class User:
             cls._instance.initialize(token0, token1)
         return cls._instance
 
+    
     def initialize(self, token0=None, token1=None):
         # -- Constants
         self.account = Account.from_key(PRIVATEKEY)
