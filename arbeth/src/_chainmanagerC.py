@@ -1,8 +1,5 @@
-import json
-from dotenv import load_dotenv
-from os import getenv
 from decimal import Decimal
-import time
+
 
 from web3 import Web3  # // Link to docs: https://shorturl.at/agMQX // #
 from eth_account import Account  # // Link to docs: https://shorturl.at/sHW39 // #
@@ -54,18 +51,19 @@ class ChainManager:
         self.transaction = TransactionC(
             chainId=self.chainID,
             nonce=self.w3.eth.get_transaction_count(address),
-            gas=self.gasPrice,
-            maxFeePerGas=self.maxFeePerGas,
+            gas=20000,
+            maxFeePerGas=self.gasPrice + self.gasPriorityFee,
             maxPriorityFeePerGas=self.gasPriorityFee,
         )
+        self.transaction_dict = self.retrieve_transaction_dict()
 
         # --  Methods
 
-    def to_readable_value(self, value: int, decimal: int) -> Decimal:
-        return Decimal(value) / 10**decimal  # type: ignore
+    def to_readable_value(self, wei: int, decimal: int) -> Decimal:
+        return Decimal(wei / 10**decimal)  # type: ignore
 
-    def to_raw_value(self, value: Decimal, decimal: int) -> int:
-        return int(value * 10**decimal)  # type: ignore
+    def to_raw_value(self, eth: Decimal, decimal: int) -> int:
+        return int(eth * 10**decimal)  # type: ignore
 
     def convert_gwei_to_wei(self, gwei: int) -> Decimal:
         return Decimal(gwei * (10**9))
@@ -74,12 +72,18 @@ class ChainManager:
         return Decimal(gwei * (10**9) / 10**18)
 
     def convert_eth_to_usd(self, eth) -> Decimal:
-        return Decimal(eth * self.ETH_USD_oracle.functions.latestAnswer().call())
+        return Decimal(
+            eth
+            * self.to_readable_value(
+                self.ETH_USD_oracle.functions.latestAnswer().call(),
+                self.ETH_USD_oracle.functions.decimals().call(),
+            )
+        )
 
     def retrieve_current_ETH_price(self) -> Decimal:
         return Decimal(self.ETH_USD_oracle.functions.latestAnswer().call()) / (
             10 ** self.ETH_USD_oracle.functions.decimals().call()
-        )  # type: ignore
+        )
 
     def retrieve_transaction_dict(self) -> dict:
         transaction = {
@@ -91,10 +95,15 @@ class ChainManager:
         }
         return transaction
 
-    def estimate_gas_in_gwei(self, transaction: dict) -> int:
-        return self.w3.eth.estimate_gas(transaction)  # type: ignore
+    def get_gas_price_in_gwei(self, transaction=None) -> int:
+        if transaction is None:
+            transaction = self.transaction_dict
+        est_gas_in_gwei = self.w3.eth.estimate_gas(transaction)  # type: ignore
+        return int(est_gas_in_gwei)
 
-    def get_gas_price_in_USD(self, transaction: dict) -> Decimal:
+    def get_gas_price_in_USD(self, transaction=None) -> Decimal:
+        if transaction is None:
+            transaction = self.transaction_dict
         est_gas_in_gwei = self.w3.eth.estimate_gas(transaction)  # type: ignore
         est_gas_in_eth = self.convert_gwei_to_eth(est_gas_in_gwei)
         return self.convert_eth_to_usd(est_gas_in_eth)
