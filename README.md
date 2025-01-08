@@ -2,12 +2,13 @@
 
 ArbEths is a primitive arbitrage interface containing classes for easy stablecoin arbitrage. The following are requirements before instantiation. 
 
-1. Activate the arbeth venv
+1. Creat and Activate a python venv
 ```bash
-$ source arbeth/Scripts/Activate
+$ python -m venv .env
+$ source .env/bin/activate
 ```
-```PowerShell
-arbeth\Scripts\Activate
+```Windows
+.env\Scripts\Activate
 ```
 
 2. Fill in the env.txt and convert to .env when done 
